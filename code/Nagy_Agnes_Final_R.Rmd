@@ -1,0 +1,200 @@
+---
+title: "Is there a wage gap between genders?"
+subtitle: "Final Project for Coding 1: Data Management and Analysis with R"
+author: Agnes Nagy
+date: January 03, 2021
+output: 
+  prettydoc::html_pretty:
+    theme: architect
+abstract: The current paper intends to answer the questions if female workers were paid less than males based on data collected from the United States of America from 1982. Our results indicates that men were paid more than women with the same education and experience level, except for those over 30 years of experience, where the weekly wages were similar regardless of the gender. 
+---
+
+```{r setup, include=FALSE} 
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+We are interested in changes in wage followed by increased level of experience and education. This relationship will be examined by gender in order to access whether the extra effort in education or an increased experience level was rewarded in the same way in 1982. 
+
+# Our Data
+
+The data analysed comprises of 595 yearly salary data along with key personal and professional data such as marrage status, gender, weeks worked, education and experience in years as well as if they work as blue or white collar workers. 
+Some extreme values were ommited, observations with over 100 dollars weekly wage and education level under 10 years. Weekly wages were calculated in order to obtain a better comparison base.
+
+```{r , include = FALSE}
+library(tidyverse)
+library("AER")
+data("PSID1982")
+library(dplyr)
+PSID1982 <- PSID1982 %>%
+  mutate(weekly_wage = wage / weeks)
+PSID1982 <- PSID1982 %>%
+  filter( weekly_wage < 100)
+PSID1982 <- PSID1982 %>%
+  filter( education > 9)
+```
+
+Wage information from both Southern (blue) and Northern (grey) US was collected.
+
+```{r,fig.align='center', echo=FALSE, out.width = '50%'}
+library(ggplot2)
+library(dplyr)
+all_states <- map_data("state") 
+states_south  <-c("alabama" , "arkansas" , "delaware" , "florida" , "georgia" , "kentucky" , "louisiana" , "maryland" , "mississippi" , "north carolina" , "oklahoma" , "south carolina" , "tennessee" , "texas" , "virginia" , "west virginia")
+ggplot(all_states, aes(x=long, y=lat, group = group)) +
+  geom_polygon(fill="grey66", colour = "white") +
+  geom_polygon(fill="deepskyblue4", data = filter(all_states, region %in% states_south))
+```
+
+A wide range of experience (from 10 to 17 years) and education (from 7 to 46 years) data was presented by the dataset used. 
+
+```{r,fig.align='center', echo=FALSE}
+library(moments)
+experience_data <- PSID1982 %>% summarise(
+  Variable = "Experience",
+  Mean     = mean(experience),
+  Median   = median(experience),
+  Min      = min(experience),
+  Max      = max(experience))
+education_data <- PSID1982 %>% summarise(
+  Variable = "Education",
+  Mean     = mean(education),
+  Median   = median(education),
+  Min      = min(education),
+  Max      = max(education))
+Variables_summary <- experience_data %>% add_row( education_data )
+knitr::kable(digits = 2,Variables_summary,caption="Variables summary - Education and experience")
+```
+
+As presented by the below barcharts, we can see that the dataset consisted of mainly married people working as both blue and white collar workers.
+As shown by the plot to the right below, the data on female and male workers is not balanced, serving as one of the main limitations of our analysis - more observations on female wages would be needed in order to make a conclusive summary. 
+
+```{r, echo=FALSE, out.width = '33%'}
+married <- ggplot(PSID1982, aes(married))
+married + geom_bar(fill = 'deepskyblue1') + 
+  ggtitle("Distribution by married status") + 
+  xlab("Married?") + ylab("Number of observations")
+collar <- ggplot(PSID1982, aes(occupation))
+collar + geom_bar(fill = 'deepskyblue2') + 
+  ggtitle("Distribution by occupation group") + 
+  xlab("Occupation") + ylab("Number of observations")
+gender <- ggplot(PSID1982, aes(gender))
+gender + geom_bar(fill = 'deepskyblue3') + 
+  ggtitle("Distribution by gender") + 
+  xlab("Gender") + ylab("Number of observations")
+```
+
+# Our analysis of wage changes
+
+There is positive relationship between weekly wages and experience as well as weekly wages and education for both genders. The below two charts presents clearly that female weekly wages are lower for the same education level and experience level. 
+
+```{r, echo=FALSE, out.width = '50%'}
+ggplot(data = PSID1982,
+       mapping = aes(x = experience, y = weekly_wage, color = gender)) +
+  geom_point(alpha = .5,
+             size = 2) +
+  geom_smooth(method = "lm" , se = FALSE , size = 1.5) + 
+  ggtitle("Relationship between wage and experience by gender") +
+  scale_color_manual(values = c("deepskyblue1", 
+                                "lightpink1"))
+ggplot(data = PSID1982,
+       mapping = aes(x = education, y = weekly_wage, color = gender)) +
+  geom_point(alpha = .5,
+             size = 2) +
+  geom_smooth(method = "lm" , se = FALSE , size = 1.5) + 
+  ggtitle("Relationship between wage and education by gender") +
+  scale_color_manual(values = c("deepskyblue1", 
+                                "lightpink1"))
+```
+
+A more detailed analysis was carried out in order to be able to examine the relationship between weekly wages, experience and education. Observations were grouped together based on years of experience to see if this gap changes between groups. 
+As presented by the belo charts, we can see that this gap closes within the 30-40 years of experience indicating that those having more experience can expext similar wages regardless the gender, given the same education level. Please note however that these closing scrissors cannot be observed for group of observations over 40 years, indocating that this might be an erroneous assumption. 
+
+```{r,fig.align='center', echo=FALSE, out.width = '80%'}
+library(dplyr)
+PSID1982 <- PSID1982 %>%
+  mutate(experience_level = case_when(experience < 10 ~ '<10y',
+                                      experience < 20 ~ '10-20y',
+                                      experience < 30 ~ '20-30y',
+                                      experience < 40 ~ '30-40y',
+                                      TRUE ~ '>40'))
+ggplot(data = PSID1982,
+       mapping = aes(x = education, 
+                     y = weekly_wage,
+                     color = gender)) +
+  geom_point(alpha = .3, size = 1) +
+  geom_smooth(method = "lm", 
+              se = FALSE) +
+  scale_color_manual(values = c("deepskyblue1", 
+                                "lightpink1")) +
+  facet_wrap(~experience_level) + 
+  ggtitle("Relationship between wage and education by experience level")
+```
+
+# Our Model
+
+Both level level and log level transformation models were examined in connection to the relationship between wages (both genders together) and education / experience to understand the relationship better.
+As a result we understand that the most suitable analysis relates to regressing experience and education on log-wages. This suggests that without controlling other variables, 1 unit increase in education / experience (years) indicates a higher % change in weekly wages. 
+
+```{r, echo=FALSE, out.width = '50%'}
+require(scales)
+library(tidyverse)
+library(lspline)
+library(estimatr)
+library(texreg)
+ggplot( PSID1982 , aes(x = education, y = weekly_wage)) +
+  geom_point(color = "deepskyblue1") +
+  geom_smooth(method="loess", color = "deepskyblue2")+
+  scale_y_continuous( trans = log_trans() )
+ggplot( PSID1982 , aes(x = experience, y = weekly_wage)) +
+  geom_point(color = "deepskyblue1") +
+  geom_smooth(method="loess", color = "deepskyblue2") +
+  scale_y_continuous( trans = log_trans() )
+
+reg_exp <- lm( weekly_wage ~ experience , data = PSID1982 )
+summary( reg_exp )
+reg_edu <- lm( weekly_wage ~ education , data = PSID1982 )
+summary( reg_edu )
+```
+
+# Summary
+
+The present paper intended to see whether there is a wage gap relating to genders based on data from the United States in 1982. We have used plots to see the relationship between education / experience and weekly wages as well as log level model to understand and explain the data selected. 
+The given dataset concludes that female workers with the same years of education and experience were not rewarded the same as their male co-workers. 
+Some data indicates that this wage gap is narrowed down with the years of experience increasing, however no conclusing evidence was found. 
+
+# Appendix 
+
+The below charts present the weekly wages (for both genders together) in relation to education and experience:
+
+```{r, echo=FALSE, out.width = '50%'}
+ggplot(data = PSID1982,
+       mapping = aes(x = experience, y = weekly_wage)) +
+  geom_point(color = "deepskyblue1",
+             alpha = .5,
+             size = 2) +
+  geom_smooth(method = "lm" , color = "deepskyblue1") + 
+  ggtitle("Wage and experience")
+ggplot(data = PSID1982,
+       mapping = aes(x = education, y = weekly_wage)) +
+  geom_point(color = "deepskyblue1",
+             alpha = .5,
+             size = 2) +
+  geom_smooth(method = "lm" , color = "deepskyblue1") + 
+  ggtitle("Wage and education")
+```
+
+The model not chosen to be analysed, level level transformation is presented below:
+
+```{r, echo=FALSE, out.width = '50%'}
+ggplot( PSID1982 , aes(x = experience, y = weekly_wage)) +
+  geom_point(color = "deepskyblue1") +
+  geom_smooth(method="loess", color = "deepskyblue2")
+ggplot( PSID1982 , aes(x = education, y = weekly_wage)) +
+  geom_point(color = "deepskyblue1") +
+  geom_smooth(method="loess", color = "deepskyblue2")
+
+reg_exp <- lm( weekly_wage ~ experience , data = PSID1982 )
+summary( reg_exp )
+reg_edu <- lm( weekly_wage ~ education , data = PSID1982 )
+summary( reg_edu )
+```
